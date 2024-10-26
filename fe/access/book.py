@@ -15,7 +15,6 @@ class Book:
     pub_year: str
     pages: int
     price: int
-    currency_unit: str
     binding: str
     isbn: str
     author_intro: str
@@ -36,8 +35,10 @@ class BookDB:
         self.db_l = os.path.join(parent_path, "data/book_lx.db")
         if large:
             self.book_db = self.db_l
+            print(self.book_db)
         else:
             self.book_db = self.db_s
+            print(self.book_db)
 
     def get_book_count(self):
         conn = sqlite.connect(self.book_db)
@@ -95,3 +96,4 @@ class BookDB:
             # print(tags)
 
         return books
+

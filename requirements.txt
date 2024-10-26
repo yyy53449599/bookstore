@@ -2,7 +2,7 @@ simplejson
 lxml
 codecov
 coverage
-flask
+flask==2.0.0
 pre - commit
 pytest
 PyJWT

@@ -28,7 +28,7 @@ def be_run():
     this_path = os.path.dirname(__file__)
     parent_path = os.path.dirname(this_path)
     log_file = os.path.join(parent_path, "app.log")
-    init_database(parent_path)
+    init_database("mongodb://127.0.0.1:27017/")
 
     logging.basicConfig(filename=log_file, level=logging.ERROR)
     handler = logging.StreamHandler()
