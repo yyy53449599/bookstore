@@ -3,43 +3,43 @@ import os
 import sqlite3 as sqlite
 import threading
 import pymongo
+import pymongo.errors as mongo_error
 
 
 class Store:
-    database: str
 
-    def __init__(self, db_path):
-        myclient = pymongo.MongoClient("mongodb://localhost:27017/")
-        self.database = myclient["bookstore_db"]
+    def __init__(self, db_url):
+        self.myclient = pymongo.MongoClient(db_url)
+        self.database = self.myclient["bookstore_db"]
         self.init_tables()
 
     def init_tables(self):
         try:
-            
+
             self.database["user"].drop()
-            col_user = self.database["user"]
-            col_user.create_index([("user_id", 1)], unique=True)
-            
+            self.col_user = self.database["user"]
+            self.col_user.create_index([("user_id", 1)], unique=True)
+
             self.database["store"].drop()
-            col_store = self.database["store"]
-            col_store.create_index([("store_id", 1)], unique=True)
-            
+            self.col_store = self.database["store"]
+            self.col_store.create_index([("store_id", 1)], unique=True)
+
             self.database["book"].drop()
-            self.col_book = self.db['books']
-            
+            self.col_book = self.database['books']
+            self.col_book.create_index(
+                [("title", "text"), ("tags", "text"), ("book_intro", "text"), ("content", "text")])
+
             self.database["order_detail"].drop()
-            self.col_order_detail = self.db['order_detail']
+            self.col_order_detail = self.database['order_detail']
 
             self.database["order"].drop()
-            self.col_order = self.db['order']
-            
-            
-            
-        except sqlite.Error as e:
+            self.col_order = self.database['order']
+
+        except mongo_error.PyMongoError as e:
             logging.error(e)
 
-    def get_db_conn(self) -> sqlite.Connection:
-        return sqlite.connect(self.database)
+    def get_db_conn(self):
+        return self
 
 
 database_instance: Store = None
@@ -47,9 +47,9 @@ database_instance: Store = None
 init_completed_event = threading.Event()
 
 
-def init_database(db_path):
+def init_database(db_url):
     global database_instance
-    database_instance = Store(db_path)
+    database_instance = Store(db_url)
 
 
 def get_db_conn():

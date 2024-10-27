@@ -9,12 +9,12 @@ class Seller(db_conn.DBConn):
         db_conn.DBConn.__init__(self)
 
     def add_book(
-        self,
-        user_id: str,
-        store_id: str,
-        book_id: str,
-        book_json_str: str,
-        stock_level: int,
+            self,
+            user_id: str,
+            store_id: str,
+            book_id: str,
+            book_json_str: str,
+            stock_level: int,
     ):
         try:
             if not self.user_id_exist(user_id):
@@ -31,12 +31,11 @@ class Seller(db_conn.DBConn):
             )
             self.conn.commit()
             '''
-            col_store = self.database["store"]
-            col_store.update_one( {"store_id": store_id},
-            {"$push": {"books": {"book_id": book_id, "stock_level": stock_level}}})
-            
-            
-            
+            col_store = self.conn.database["store"]
+            col_store.update_one({"store_id": store_id},
+                                 {"$push": {"books": {"book_id": book_id, "stock_level": stock_level}}})
+
+            self.conn.col_book.insert_one(json.loads(book_json_str))
         except sqlite.Error as e:
             return 528, "{}".format(str(e))
         except BaseException as e:
@@ -44,7 +43,7 @@ class Seller(db_conn.DBConn):
         return 200, "ok"
 
     def add_stock_level(
-        self, user_id: str, store_id: str, book_id: str, book_json_str: str,add_stock_level: int
+            self, user_id: str, store_id: str, book_id: str, add_stock_level: int
     ):
         try:
             if not self.user_id_exist(user_id):
@@ -61,14 +60,12 @@ class Seller(db_conn.DBConn):
             )
             self.conn.commit()
             '''
-            
-            col_store = self.database["store"]
-            col_store.update_one({'store_id': store_id, 'books.book_id': book_id}, 
+
+            col_store = self.conn.database["store"]
+            col_store.update_one({'store_id': store_id, 'books.book_id': book_id},
                                  {'$inc': {'books.$.stock_level': add_stock_level}})
-            
-            col_book = self.database["book"]
-            col_book.insert_one(json.loads(book_json_str))
-            
+
+
         except sqlite.Error as e:
             return 528, "{}".format(str(e))
         except BaseException as e:
@@ -88,14 +85,14 @@ class Seller(db_conn.DBConn):
             )
             self.conn.commit()
             '''
-            col_store = self.database["store"]
+            col_store = self.conn.database["store"]
             new_store = {
-                'store_id' : store_id,
-                'user_id' : user_id,
+                'store_id': store_id,
+                'user_id': user_id,
                 "books": []
             }
             col_store.insert_one(new_store)
-            
+
         except sqlite.Error as e:
             return 528, "{}".format(str(e))
         except BaseException as e:
