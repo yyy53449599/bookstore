@@ -82,3 +82,11 @@ def search_books():
     b = Buyer()
     code, message = b.search(keyword, store_id, page)
     return jsonify({"message": message}), code
+
+@bp_buyer.route("/receive", methods=["POST"])
+def receive():
+    user_id = request.json.get("user_id")
+    order_id = request.json.get("order_id")
+    b = Buyer()
+    code, message = b.receive(user_id, order_id)
+    return jsonify({"message": message}), code
