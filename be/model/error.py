@@ -12,8 +12,8 @@ error_code = {
     520: "books not deliver.",
     521: "books deliver repeatedly.",
     522: "books receive repeatedly.",
-    523: "",
-    524: "",
+    523: "seller has not sufficient funds order id {}",
+    524: "auto cancel failed, order id {}",
     525: "",
     526: "",
     527: "",
@@ -68,8 +68,18 @@ def error_and_message(code, message):
 def error_books_not_deliver():
     return 520, error_code[520]
 
+
 def error_books_repeat_deliver():
     return 521, error_code[521]
 
+
 def error_books_repeat_receive():
     return 522, error_code[522]
+
+
+def error_auto_cancel_fail(order_id):
+    return 524, error_code[524].format(order_id)
+
+
+def error_seller_not_sufficient_funds(order_id):
+    return 523, error_code[523].format(order_id)
