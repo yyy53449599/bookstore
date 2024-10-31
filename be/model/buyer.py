@@ -4,14 +4,16 @@ import json
 import logging
 from be.model import db_conn
 from be.model import error
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
+from apscheduler.schedulers.background import BackgroundScheduler
+
 
 class Buyer(db_conn.DBConn):
     def __init__(self):
         db_conn.DBConn.__init__(self)
 
     def new_order(
-        self, user_id: str, store_id: str, id_and_count: [(str, int)]
+            self, user_id: str, store_id: str, id_and_count: [(str, int)]
     ) -> (int, str, str):
         order_id = ""
         try:
@@ -19,7 +21,7 @@ class Buyer(db_conn.DBConn):
                 return error.error_non_exist_user_id(user_id) + (order_id,)
             if not self.store_id_exist(store_id):
                 return error.error_non_exist_store_id(store_id) + (order_id,)
-            
+
             uid = "{}_{}_{}".format(user_id, store_id, str(uuid.uuid1()))
             total_price = 0
 
@@ -36,8 +38,9 @@ class Buyer(db_conn.DBConn):
                 if stock_level < count:
                     return error.error_stock_level_low(book_id) + (order_id,)
 
-                result = self.conn.col_store.update_one({"store_id": store_id, "books.book_id": book_id, "books.stock_level": {"$gte": count}},
-                                                               {"$inc": {"books.$.stock_level": -count}})
+                result = self.conn.col_store.update_one(
+                    {"store_id": store_id, "books.book_id": book_id, "books.stock_level": {"$gte": count}},
+                    {"$inc": {"books.$.stock_level": -count}})
                 if result.modified_count == 0:
                     return error.error_stock_level_low(book_id) + (order_id,)
 
@@ -49,10 +52,12 @@ class Buyer(db_conn.DBConn):
                 })
                 total_price += price * count
 
+            now_time = datetime.utcnow()
             self.conn.col_order.insert_one({
                 "order_id": uid,
                 "store_id": store_id,
                 "user_id": user_id,
+                "create_time": now_time,
                 "price": total_price,
                 "status": 0
             })
@@ -98,7 +103,8 @@ class Buyer(db_conn.DBConn):
 
             if balance < total_price:
                 return error.error_not_sufficient_funds(order_id)
-            result = self.conn.col_user.update_one({"user_id": buyer_id, "balance": {"$gte": total_price}}, {"$inc": {"balance": -total_price}})
+            result = self.conn.col_user.update_one({"user_id": buyer_id, "balance": {"$gte": total_price}},
+                                                   {"$inc": {"balance": -total_price}})
             if result.matched_count == 0:
                 return error.error_not_sufficient_funds(order_id)
 
@@ -139,6 +145,7 @@ class Buyer(db_conn.DBConn):
             return 528, "{}".format(str(e))
 
         return 200, ""
+
     def cancel_order(self, user_id: str, order_id: str) -> (int, str):
         try:
             result = self.conn.col_order.find_one({"order_id": order_id, "status": 0})
@@ -174,18 +181,17 @@ class Buyer(db_conn.DBConn):
                     if result2 is None:
                         return error.error_non_exist_user_id(seller_id)
 
-
                     result3 = self.conn.col_user.update_one({"user_id": buyer_id}, {"$inc": {"balance": price}})
                     if result3 is None:
                         return error.error_non_exist_user_id(user_id)
 
                     result4 = self.conn.col_order.delete_one({
-                    "$or": [
-                        {"order_id": order_id, "status": 1},
-                        {"order_id": order_id, "status": 2},
-                        {"order_id": order_id, "status": 3},
-                    ]
-                })
+                        "$or": [
+                            {"order_id": order_id, "status": 1},
+                            {"order_id": order_id, "status": 2},
+                            {"order_id": order_id, "status": 3},
+                        ]
+                    })
                     if result4 is None:
                         return error.error_invalid_order_id(order_id)
 
@@ -195,11 +201,13 @@ class Buyer(db_conn.DBConn):
             for book in result:
                 book_id = book["book_id"]
                 count = book["count"]
-                result1 = self.conn.col_store.update_one({"store_id": store_id, "books.book_id": book_id}, {"$inc": {"books.$.stock_level": count}})
+                result1 = self.conn.col_store.update_one({"store_id": store_id, "books.book_id": book_id},
+                                                         {"$inc": {"books.$.stock_level": count}})
                 if result1.modified_count == 0:
                     return error.error_stock_level_low(book_id) + (order_id,)
 
-            self.conn.col_order.insert_one({"order_id": order_id, "user_id": user_id, "store_id": store_id, "price": price, "status": 4})
+            self.conn.col_order.insert_one(
+                {"order_id": order_id, "user_id": user_id, "store_id": store_id, "price": price, "status": 4})
         except BaseException as e:
             return 528, "{}".format(str(e))
         return 200, "ok"
@@ -290,17 +298,17 @@ class Buyer(db_conn.DBConn):
                     })
 
         except BaseException as e:
-            return 528, "{}".format(str(e))
+            return 528, "{}".format(str(e)), None  # 添加第三个返回值
         if not ans:
             return 200, "ok", "No orders found "
         else:
             return 200, "ok", ans
 
-
     def auto_cancel_order(self) -> (int, str):
         try:
-            wait = 20  
-            interval = datetime.utcnow() - timedelta(seconds=wait) # UTC时间
+            wait = 20
+            current_time = datetime.now(UTC)  # 使用新的UTC时间方法
+            interval = current_time - timedelta(seconds=wait)  # UTC时间
             orders_to_cancel = self.conn.col_order.find({"create_time": {"$lte": interval}, "status": 0})
             if orders_to_cancel:
                 for order in orders_to_cancel:
@@ -314,11 +322,13 @@ class Buyer(db_conn.DBConn):
                     for book in result:
                         book_id = book["book_id"]
                         count = book["count"]
-                        result1 = self.conn.col_store.update_one({"store_id": store_id, "books.book_id": book_id}, {"$inc": {"books.$.stock_level": count}})
+                        result1 = self.conn.col_store.update_one({"store_id": store_id, "books.book_id": book_id},
+                                                                 {"$inc": {"books.$.stock_level": count}})
                         if result1.modified_count == 0:
                             return error.error_stock_level_low(book_id) + (order_id,)
 
-                    self.conn.col_order.insert_one({"order_id": order_id, "user_id": user_id,"store_id": store_id, "price": price, "status": 4})
+                    self.conn.col_order.insert_one(
+                        {"order_id": order_id, "user_id": user_id, "store_id": store_id, "price": price, "status": 4})
         except BaseException as e:
             return 528, "{}".format(str(e))
         return 200, "ok"
@@ -341,23 +351,23 @@ class Buyer(db_conn.DBConn):
                 query["id"] = {"$in": books_id}
 
             result = self.conn.col_book.find(query,
-                                              {"score": {"$meta": "textScore"}, "_id": 0, "picture": 0}).sort(
+                                             {"score": {"$meta": "textScore"}, "_id": 0, "picture": 0}).sort(
                 [("score", {"$meta": "textScore"})])
 
             result.skip((int(page) - 1) * per_page).limit(per_page)
         except BaseException as e:
             return 530, f"{str(e)}"
         return 200, list(result)
-    
+
     def receive(self, user_id: str, order_id: str) -> (int, str):
-        try :
+        try:
             col_order = self.conn.database["order"]
-            query = {  
+            query = {
                 "$or": [
                     {"order_id": order_id, "status": 1},
                     {"order_id": order_id, "status": 2},
                     {"order_id": order_id, "status": 3},
-                ]   
+                ]
             }
             result = col_order.find_one(query)
             if result == None:
@@ -374,7 +384,12 @@ class Buyer(db_conn.DBConn):
 
             col_order.update_one({"order_id": order_id}, {"$set": {"status": 3}})
         except sqlite.Error as e:
-            return 528,"{}".format(str(e))
+            return 528, "{}".format(str(e))
         except BaseException as e:
-            return 530,"{}".format(str(e))
+            return 530, "{}".format(str(e))
         return 200, "ok"
+
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(Buyer().auto_cancel_order, 'interval', id='5_second_job', seconds=5)
+scheduler.start()

@@ -57,3 +57,44 @@ class Buyer:
         headers = {"token": self.token}
         r = requests.post(url, headers=headers, json=json)
         return r.status_code
+
+    def cancel_order(self, user_id: str, order_id: str) -> int:
+        json = {"user_id": user_id, "order_id": order_id}
+        url = urljoin(self.url_prefix, "cancel_order")
+        headers = {"token": self.token}
+        r = requests.post(url, headers=headers, json=json)
+        return r.status_code
+
+    def auto_cancel_order(self, order_id: str) -> int:
+        json = {"order_id": order_id}
+        url = urljoin(self.url_prefix, "auto_cancel_order")
+        headers = {"token": self.token}
+        r = requests.post(url, headers=headers, json=json)
+        return r.status_code
+
+    def is_order_cancelled(self, order_id: str) -> int:
+        json = {"order_id": order_id}
+        url = urljoin(self.url_prefix, "is_order_cancelled")
+        headers = {"token": self.token}
+        r = requests.post(url, headers=headers, json=json)
+        return r.status_code
+
+    def check_hist_order(self, user_id: str) -> int:
+        json = {"user_id": user_id}
+        url = urljoin(self.url_prefix, "check_hist_order")
+        headers = {"token": self.token}
+        r = requests.post(url, headers=headers, json=json)
+        return r.status_code
+
+    def search(self, keyword, store_id=None, page=1):
+        # store
+        json = {
+            "keyword": keyword,
+            "page": page
+        }
+        if store_id:
+            json["store_id"] = store_id
+
+        url = urljoin(self.url_prefix, "search")
+        r = requests.post(url, json=json)
+        return r.content, r.status_code
