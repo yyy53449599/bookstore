@@ -5,6 +5,7 @@ from fe.access.new_buyer import register_new_buyer
 from fe.access.book import Book
 import uuid
 
+
 class TestCancelOrder:
     @pytest.fixture(autouse=True)
     def pre_run_initialization(self):

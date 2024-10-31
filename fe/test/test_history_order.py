@@ -6,6 +6,7 @@ import uuid
 
 import random
 
+
 class Testhistoryorder:
     @pytest.fixture(autouse=True)
     def pre_run_initialization(self):
@@ -58,7 +59,7 @@ class Testhistoryorder:
                         assert code == 200
                         continue
                     else:
-                        code = self.seller.send_books(self.seller_id, self.order_id)
+                        code = self.seller.deliver(self.seller_id, self.order_id)
                         assert code == 200
                         is_cancelled = random.randint(0, 1)
                         # 发货后收货前
@@ -67,7 +68,7 @@ class Testhistoryorder:
                             assert code == 200
                             continue
                         else:
-                            code = self.buyer.receive_books(self.buyer_id, self.order_id)
+                            code = self.buyer.receive(self.buyer_id, self.order_id)
                             assert code == 200
         code = self.buyer.check_hist_order(self.buyer_id)
         assert code == 200

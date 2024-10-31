@@ -54,4 +54,8 @@ def init_database(db_url):
 
 def get_db_conn():
     global database_instance
+    if database_instance is None:
+        # 初始化数据库连接
+        db_url = "mongodb://localhost:27017/"  # 替换为你的 MongoDB 连接URL
+        init_database(db_url)
     return database_instance.get_db_conn()
