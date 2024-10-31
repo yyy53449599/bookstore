@@ -421,3 +421,73 @@ def get_db_conn():
 运行结果如下
 
 ![image-20241027025601617](https://aquaoh.oss-cn-shanghai.aliyuncs.com/post/image-20241027025601617.png)
+
+### 5.额外功能
+
+#### 5.1发货 -> 收货
+
+##### 5.1.1修改后端be/model/sell.py
+
+```
+def deliver(self,user_id:str,order_id:str) -> (int, str):
+        try:            
+            col_order = self.conn.database["order"]
+            deliver = {  
+                "$or": [
+                    {"order_id": order_id, "status": 1},
+                    {"order_id": order_id, "status": 2},
+                    {"order_id": order_id, "status": 3},
+                ]   
+            }
+            result = col_order.find_one(deliver)
+
+            if result == None:
+                return error.error_invalid_order_id(order_id)
+            store_id = result.get("store_id")
+            status = result.get("status")
+
+            result = col_order.find_one({"store_id": store_id})
+            seller_id = result.get("user_id")
+            if seller_id != user_id:
+                return error.error_authorization_fail()
+            if status == 2 or status == 3:
+                return error.error_books_repeat_sent()
+
+            col_order.update_one({"order_id": order_id}, {"$set": {"status": 2}})
+            
+            
+            
+        except sqlite.Error as e:
+            return 528,"{}".format(str(e))
+        except BaseException as e:
+            return 530,"{}".format(str(e))
+        
+        return 200,"ok"
+```
+
+##### 5.1.2修改后端be/view/sell.py
+
+```
+@bp_seller.route("/deliver",methods=['POST'])
+def deliver():
+    user_id:str=request.json.get("user_id")
+    order_id:str=request.json.get("order_id")
+
+    s = seller.Seller()
+    code,message=s.deliver(user_id,order_id)
+
+    return jsonify({"message":message}) , code
+```
+
+##### 5.1.3修改前端fe/access/sell.py
+
+```
+def deliver(self, seller_id: str, order_id: str) -> int:
+        json = {"user_id": seller_id, "order_id": order_id}
+        url = urljoin(self.url_prefix, "send_books")
+        headers = {"token": self.token}
+        r = requests.post(url, headers=headers, json=json)
+        return r.status_code
+```
+
+##### 5.1.4添加fe/test/test_deliver.py

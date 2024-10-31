@@ -98,3 +98,33 @@ class Seller(db_conn.DBConn):
         except BaseException as e:
             return 530, "{}".format(str(e))
         return 200, "ok"
+    
+    def deliver(self,user_id:str,order_id:str) -> (int, str):
+        try:
+            col_order = self.conn.database["order"]
+            query = {  
+                "$or": [
+                    {"order_id": order_id, "status": 1},
+                    {"order_id": order_id, "status": 2},
+                    {"order_id": order_id, "status": 3},
+                ]   
+            }
+            result = col_order.find_one(query)
+
+            if result == None:
+                return error.error_invalid_order_id(order_id)
+            status = result.get("status")
+
+            if status == 2 or status == 3:
+                return error.error_books_repeat_deliver()
+
+            col_order.update_one({"order_id": order_id}, {"$set": {"status": 2}})
+            
+            
+            
+        except sqlite.Error as e:
+            return 528,"{}".format(str(e))
+        except BaseException as e:
+            return 530,"{}".format(str(e))
+        
+        return 200,"ok"
